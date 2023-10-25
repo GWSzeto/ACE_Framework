@@ -21,7 +21,9 @@ class ResourceManager():
     def __init__(self, args):
         self.args = args
         self.client = docker.from_env()
+        # constructs a dict of all the services and their respective dependencies
         self.services = self.get_services()
+        # constructs a dict of all the services and their respective container objects
         self.containers = self.get_containers()
 
     def get_service_container(self, service_name):
@@ -35,15 +37,19 @@ class ResourceManager():
         logger.debug(f"Loading docker-compose file: {self.args.compose_file}")
         with open(self.args.compose_file) as f:
             compose_config = yaml.safe_load(f)
-        logger.debug(f"Extracting dependencies for services: {compose_config['services'].keys()}")
-        services = {service: config.get('depends_on', []) for service, config in compose_config['services'].items()}
+        logger.debug(
+            f"Extracting dependencies for services: {compose_config['services'].keys()}")
+        services = {service: config.get(
+            'depends_on', []) for service, config in compose_config['services'].items()}
         return services
 
     def get_containers(self):
         logger.debug("Initializing Docker client")
         service_names = self.services.keys()
-        logger.debug(f"Extracting container objects for services: {service_names}")
-        containers = {service_name: self.get_service_container(service_name) for service_name in service_names}
+        logger.debug(
+            f"Extracting container objects for services: {service_names}")
+        containers = {service_name: self.get_service_container(
+            service_name) for service_name in service_names}
         return containers
 
     def restart_with_deps(self, resource, restarted=None):
@@ -86,7 +92,8 @@ class ResourceManager():
         logger.info("All resources stopped")
 
     def monitor_containers(self):
-        logger.info(f"Monitoring containers every {self.args.monitor_seconds} seconds")
+        logger.info(
+            f"Monitoring containers every {self.args.monitor_seconds} seconds")
         while True:
             time.sleep(self.args.monitor_seconds)
             logger.debug("Checking health of all resources")
@@ -115,18 +122,25 @@ class ResourceManager():
             self.run_with_monitor()
         except KeyboardInterrupt:
             if self.args.detach:
-                logger.info("Keyboard interrupt received, shutting down all resources...")
+                logger.info(
+                    "Keyboard interrupt received, shutting down all resources...")
                 self.stop_all_containers()
 
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='ACE Framework demo resource manager.')
-    parser.add_argument('-b', '--build', action='store_true', help='Build the Docker containers')
-    parser.add_argument('-d', '--detach', action='store_true', help='Run containers in the background')
-    parser.add_argument('-r', '--restart-deps', action='store_true', help='Restart dependent containers on a container restart')
-    parser.add_argument('-c', '--compose-file', default=DEFAULT_DOCKER_COMPOSE_FILE, help='Docker Compose file to use (default: %(default)s)')
-    parser.add_argument('-m', '--monitor-seconds', default=DEFAULT_MONITOR_SECONDS, type=int, help='Number of seconds between monitor checks (default: %(default)s) -- set to 0 to disable')
+    parser = argparse.ArgumentParser(
+        description='ACE Framework demo resource manager.')
+    parser.add_argument('-b', '--build', action='store_true',
+                        help='Build the Docker containers')
+    parser.add_argument('-d', '--detach', action='store_true',
+                        help='Run containers in the background')
+    parser.add_argument('-r', '--restart-deps', action='store_true',
+                        help='Restart dependent containers on a container restart')
+    parser.add_argument('-c', '--compose-file', default=DEFAULT_DOCKER_COMPOSE_FILE,
+                        help='Docker Compose file to use (default: %(default)s)')
+    parser.add_argument('-m', '--monitor-seconds', default=DEFAULT_MONITOR_SECONDS, type=int,
+                        help='Number of seconds between monitor checks (default: %(default)s) -- set to 0 to disable')
     args = parser.parse_args()
 
     manager = ResourceManager(args)

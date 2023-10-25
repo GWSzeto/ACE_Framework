@@ -6,7 +6,7 @@ from layers.L4Executive import L4Executive
 from layers.L5Cognitive import L5Cognitive
 from layers.L6Prosecution import L6Prosecution
 from layers.Interface import Interface
-import keyboard
+# import keyboard
 import threading
 import time
 from flask import Flask, jsonify, request
@@ -16,11 +16,16 @@ import uuid
 class ACE:
 
     def __init__(self):
+        # Same thing as agent forge
+        # pretty much initializes chroma DB and gives utility functions (mainly for getting and setting data)
+        # Main collection is chat messages
         self.storage = StorageInterface().storage_utils
+        # Provides a way to interact with the chat messages and south bus
         self.interface = Interface()
 
         # Initialize Flask app
         self.flask_app = Flask(__name__)
+        # Sets up the /bot endpoint which allows for user messages to be consumed and sent to the third layer
         self.init_flask_routes()
 
         # Start Flask app in a separate thread
@@ -48,7 +53,9 @@ class ACE:
             thread.daemon = True
             thread.start()
 
+
         print("\nAll Layers Initialized, ACE Running...\n")
+
 
     def run(self):
         # Trigger L1
@@ -56,11 +63,12 @@ class ACE:
         self.layers[1].trigger_event('InputUpdate')
 
         # Main loop
+        # This doesn't actually do anything
         while True:
             # Check for 'ESC' key press
-            if keyboard.is_pressed('esc'):
-                print("Escape key detected! Exiting...")
-                break
+            # if keyboard.is_pressed('esc'):
+            #     print("Escape key detected! Exiting...")
+            #     break
             time.sleep(15)
 
     def init_layer(self, layer_number):

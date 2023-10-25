@@ -3,6 +3,7 @@ from agentforge.utils.storage_interface import StorageInterface
 import threading
 from agentforge.config import Config
 from .Interface import Interface
+from pprint import pprint 
 
 
 class AceLayer:
@@ -72,6 +73,9 @@ class AceLayer:
         # Load Relevant Data From Input and process
         self.run()
 
+    # This only called when the /bot endpoint is hit
+    # Interestingly enough, the L3 Agent is responsible for ingesting user messages
+    # And sending it through out the other layers
     def handle_user_update(self):
         # Load Relevant Data From Input and process
         LAYER_REGISTRY[self.layer_number].get_proposed_response()
@@ -86,6 +90,7 @@ class AceLayer:
         if self.south_layer < 7:
             LAYER_REGISTRY[self.south_layer].trigger_event('SouthBusUpdate')
         else:
+            # This will most likely use the interface method handle_south_bus
             LAYER_REGISTRY[self.layer_number].parse_agent_output()
 
     # -------------------------------- MAIN LOGIC --------------------------------
@@ -93,15 +98,15 @@ class AceLayer:
     def run(self):
         self.interface.output_message(self.layer_number,
                                       f"\n--------------------Running {self.layer_name}--------------------")
-        self.initialize_agents()
-        self.load_relevant_data()
-        self.load_data_from_bus(bus="SouthBus")
-        self.load_data_from_bus(bus="NorthBus")
-        self.process_data_from_buses()
-        self.run_agents()
-        self.parse_results()
-        self.update_bus(bus="SouthBus", message=self.my_messages['SouthBus'])
-        self.update_bus(bus="NorthBus", message=self.my_messages['NorthBus'])
+        self.initialize_agents() # pass
+        self.load_relevant_data() # pass
+        self.load_data_from_bus(bus="SouthBus") # loads SouthBus collection to self.bus.SouthBus
+        self.load_data_from_bus(bus="NorthBus") # loads NorthBus collection to self.bus.NorthBus
+        self.process_data_from_buses() # Loads the top and bottom layer messages. North layer => South Bus => Top Layer Message, vice versa
+        self.run_agents() # calls "run" on the agents (reference AgentForge architecture)
+        self.parse_results() # splits llm message into north and south bus messages
+        self.update_bus(bus="SouthBus", message=self.my_messages['SouthBus']) # saves message to "SouthBus" collection for this layer number
+        self.update_bus(bus="NorthBus", message=self.my_messages['NorthBus']) # saves message to "NorthBus" collection for this layer number 
         self.trigger_next_layer()
 
     def initialize_agents(self):
@@ -124,12 +129,20 @@ class AceLayer:
         north_layer = self.north_layer.__str__()
         south_layer = self.south_layer.__str__()
 
+        # Having a hard time understanding how a collection could be in it's own referenced "ids" field
+        # printing south_bus to get a better idea of what's going on
+
+        print("South Bus")
+        pprint(south_bus)
+        pprint(south_bus['ids'])
+        print(south_bus in south_bus['ids'])
+
         # North Layer Writes to South Bus, Hence it's a Message from the Top Layer
         if south_bus and north_layer in south_bus['ids']:
             index = south_bus['ids'].index(north_layer)
             self.top_layer_message = south_bus['documents'][index]
 
-        # North Layer Writes to South Bus, Hence it's a Message from the Bottom Layer
+        # South Layer Writes to North Bus, Hence it's a Message from the Bottom Layer
         if north_bus and south_layer in north_bus['ids']:
             index = north_bus['ids'].index(north_layer)
             self.bottom_layer_message = north_bus['documents'][index]

@@ -19,7 +19,7 @@ def loader(resource_name):
         logger.debug(f"Created an instance of {resource_class}")
         logger.info(f"Calling start_resource method on the {resource_class} instance")
         resource.start_resource()
-        logger.debug(f"Called start_resource method on the {resource_class} instance")
+        # logger.debug(f"Called start_resource method on the {resource_class} instance")
         return True
     except ImportError:
         logger.error(f"Failed to import module ace.framework.resource.{resource_name}", exc_info=True)

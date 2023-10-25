@@ -27,5 +27,5 @@ DATA_REQUEST: Exists only on the northbound bus. Requests information from the l
 CONTROL_REQUEST: Exists only on the southbound bus. Requests information from the layer below.
 DATA_RESPONSE: Exists only on the northbound bus. This is the response to "CONTROL_REQUEST" messages.
 CONTROL_RESPONSE: Exists only on the southbound bus. This is the response to "DATA_REQUEST" messages.
-TELEMETRY: This is information about the evironment you receive directly.
+TELEMETRY: This is information about the environment you receive directly.
 """

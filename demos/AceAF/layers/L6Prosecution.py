@@ -1,7 +1,7 @@
 import re
 from .AceLayer import AceLayer
 from .customagents.l6prosecution.TaskProsecution import TaskProsecution
-
+from pprint import pprint
 
 class L6Prosecution(AceLayer):
 
@@ -31,5 +31,11 @@ class L6Prosecution(AceLayer):
 
         # Merge the parsed data from both buses into one dictionary
         combined_data = {**south_bus_data, **north_bus_data}
+
+        # In the handle_south_bus method, it grabs the field "UserOutput"
+        # Not sure where it comes from, so print it out
+
+        print("combined data")
+        pprint(combined_data)
 
         self.interface.handle_south_bus(combined_data)

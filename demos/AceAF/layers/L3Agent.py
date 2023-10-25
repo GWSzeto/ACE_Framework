@@ -2,7 +2,8 @@ from .AceLayer import AceLayer
 from .customagents.l3agent.SelfModel import SelfModel
 from .Chat import Chatbot
 
-
+# This layer appears to be responsible for ingesting user messages
+# and sending them through the other layers
 class L3Agent(AceLayer):
 
     chat_bot = Chatbot()

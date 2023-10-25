@@ -61,13 +61,24 @@ class Resource(ABC):
 
     def connect_busses_in_thread(self):
         asyncio.set_event_loop(self.bus_loop)
-        self.bus_loop.run_until_complete(self.get_busses_connection_and_channel())
+        # connects to rabbitMQ server and creates channels for consumer and publisher
+        self.bus_loop.run_until_complete(
+            self.get_busses_connection_and_channel())
+        # tries to subscribe to the system integrity queue
+        # callback associated to this queue is responsible for running the commands
+        # commands are the methods associated to the class inheriting from this class
+        # ie: run_layer, begin_work, etc
+        # inheriting classes typically override this function (ie: busses, logging, telemetry, Layer, etc)
+        # click further in for more info about the system integrity queue
         self.bus_loop.run_until_complete(self.post_connect())
-        self.bus_loop.run_until_complete(self.process_publisher_messages_to_exchanges())
+        # Pushes publisher local messages to the exchange
+        self.bus_loop.run_until_complete(
+            self.process_publisher_messages_to_exchanges())
         self.bus_loop.run_forever()
 
     async def get_busses_connection_and_channel(self):
-        self.log.debug(f"{self.labeled_name} getting busses connection and channels...")
+        self.log.debug(
+            f"{self.labeled_name} getting busses connection and channels...")
         self.connection = await get_connection(settings=self.settings, loop=self.bus_loop)
         self.consumer_channel = await self.connection.channel()
         self.publisher_channel = await self.connection.channel()
@@ -108,15 +119,27 @@ class Resource(ABC):
         self.post_start()
         self.log.info("Resource started")
 
+    # mirrors the setup
+    # stops all connections, channels and this resource
     def stop_resource(self):
         self.log.info("Shutting down resource...")
         self.pre_stop()
+        # mirrors the connect busses function in the setup
+        # disconnects consumer, publisher and connection
+        # disconnects the endpoint
         self.shutdown_service()
         self.log.info("Resource shut down")
 
     def setup_service(self):
         self.log.debug("Setting up service...")
+        # This is setting up the /status api endpoint
+        # the status callback is defined in the api_callbacks function
+        # Uses a mix of HTTPServer and threading to setup the endpoint
         self.api_endpoint.start_endpoint()
+        # connects to rabbitMQ server
+        # declares channels for consumer and publisher
+        # subscribes to the system integrity queue
+        # starts the thread that pushes publisher messages to the exchanges
         self.connect_busses()
 
     def shutdown_service(self):
@@ -128,7 +151,8 @@ class Resource(ABC):
         # TODO: Would be nice if this was cleaner, but we need to wait on the
         # messaging thread to call post_start().
         while not self.publisher_local_queue:
-            self.log.debug(f"[{self.labeled_name}] waiting for publisher local queue...")
+            self.log.debug(
+                f"[{self.labeled_name}] waiting for publisher local queue...")
             time.sleep(1)
 
     def get_consumer_local_queue(self, queue_name):
@@ -153,7 +177,8 @@ class Resource(ABC):
 
     def push_exchange_message_to_publisher_local_queue(self, queue_name, message):
         data = (queue_name, message)
-        self.bus_loop.call_soon_threadsafe(self.publisher_local_queue.put_nowait, data)
+        self.bus_loop.call_soon_threadsafe(
+            self.publisher_local_queue.put_nowait, data)
 
     async def process_publisher_messages_to_exchanges(self):
         self.publisher_local_queue = asyncio.Queue()
@@ -165,7 +190,8 @@ class Resource(ABC):
                 if queue_name:
                     await self.publish_message(self.build_exchange_name(queue_name), message)
             except Exception as e:
-                self.log.error(f"Publishing message from local publisher queue failed: {e}")
+                self.log.error(
+                    f"Publishing message from local publisher queue failed: {e}")
                 continue
 
     def build_layer_queue_name(self, direction, layer):
@@ -197,12 +223,15 @@ class Resource(ABC):
         return yaml.dump(message, default_flow_style=False).encode()
 
     async def publish_message(self, exchange_name, message, delivery_mode=2):
+        # returns backs an exchange
         exchange = await self.try_get_exchange(exchange_name)
+        # Constructs message object
         message = aio_pika.Message(
             body=message,
             delivery_mode=delivery_mode
         )
         self.log.debug(f"Publishing message, exchange {exchange.name}")
+        # publishes message to exchange
         await exchange.publish(message, routing_key="")
 
     def is_existant_layer_queue(self, orientation, idx):
@@ -213,27 +242,40 @@ class Resource(ABC):
             return False
         return True
 
+    # constructs list of all possible layer busses
+    # ie:
+    #    northbound.layer1
+    #    southbound.layer1
+    #    northbound.layer2
+    #    southbound.layer2
+    #    ...
     def build_all_layer_queue_names(self):
         queue_names = []
         for orientation in constants.LAYER_ORIENTATIONS:
             for idx, layer in enumerate(self.settings.layers):
                 if self.is_existant_layer_queue(orientation, idx):
-                    queue_names.append(self.build_layer_queue_name(orientation, layer))
+                    queue_names.append(
+                        self.build_layer_queue_name(orientation, layer))
         return queue_names
 
+    # Opens channel if it's not open already
+    # Fetches the queue to sub to
+    # subs to the queue by "consuming" it
     async def try_queue_subscribe(self, queue_name, callback):
         while True:
             self.log.debug(f"Trying to subscribe to queue: {queue_name}...")
             try:
                 if self.consumer_channel.is_closed:
-                    self.log.info("Previous channel was closed, creating new channel...")
+                    self.log.info(
+                        "Previous channel was closed, creating new channel...")
                     self.consumer_channel = await self.connection.channel()
                 queue = await self.consumer_channel.get_queue(queue_name)
                 consumer_tag = await queue.consume(callback)
                 self.log.info(f"Subscribed to queue: {queue_name}")
                 return queue, consumer_tag
             except (aio_pika.exceptions.ChannelClosed, aio_pika.exceptions.ChannelClosed) as e:
-                self.log.warning(f"Error occurred: {str(e)}. Trying again in {constants.QUEUE_SUBSCRIBE_RETRY_SECONDS} seconds.")
+                self.log.warning(
+                    f"Error occurred: {str(e)}. Trying again in {constants.QUEUE_SUBSCRIBE_RETRY_SECONDS} seconds.")
                 await asyncio.sleep(constants.QUEUE_SUBSCRIBE_RETRY_SECONDS)
 
     async def try_get_exchange(self, exchange_name):
@@ -241,49 +283,65 @@ class Resource(ABC):
             self.log.debug(f"Trying to get exchange: {exchange_name}...")
             try:
                 if self.publisher_channel.is_closed:
-                    self.log.info("Previous channel was closed, creating new channel...")
+                    self.log.info(
+                        "Previous channel was closed, creating new channel...")
                     self.publisher_channel = await self.connection.channel()
                 exchange = await self.publisher_channel.get_exchange(exchange_name)
                 return exchange
             except (aio_pika.exceptions.ChannelClosed, aio_pika.exceptions.ChannelClosed) as e:
-                self.log.warning(f"Error occurred: {str(e)}. Trying again in {constants.QUEUE_SUBSCRIBE_RETRY_SECONDS} seconds.")
+                self.log.warning(
+                    f"Error occurred: {str(e)}. Trying again in {constants.QUEUE_SUBSCRIBE_RETRY_SECONDS} seconds.")
                 await asyncio.sleep(constants.QUEUE_SUBSCRIBE_RETRY_SECONDS)
 
     async def subscribe_system_integrity_queue(self):
+        # returns "system_integrity.[layer]"
         queue_name = self.build_system_integrity_queue_name(self.settings.name)
         self.log.debug(f"{self.labeled_name} subscribing to {queue_name}...")
+        # Tries subscribing to the queue
+        # system_integrity_message_handler callback parses the incoming message and if the message is a command
+        # it will run the command (which is a function in this class)
         self.consumers[queue_name] = await self.try_queue_subscribe(queue_name, self.system_integrity_message_handler)
 
     async def unsubscribe_system_integrity_queue(self):
         queue_name = self.build_system_integrity_queue_name(self.settings.name)
         if queue_name in self.consumers:
             queue, consumer_tag = self.consumers[queue_name]
-            self.log.debug(f"{self.labeled_name} unsubscribing from {queue_name}...")
+            self.log.debug(
+                f"{self.labeled_name} unsubscribing from {queue_name}...")
             await queue.cancel(consumer_tag)
-            self.log.info(f"{self.labeled_name} unsubscribed from {queue_name}")
+            self.log.info(
+                f"{self.labeled_name} unsubscribed from {queue_name}")
 
+    # This is where the messages sent from the system integrity queue are parsed
+    # last line is where it gets sent to run the commands sent
+    # that being the "run_layer" and "begin_work" commands
     async def system_integrity_message_handler(self, message: aio_pika.IncomingMessage):
         async with message.process():
             decoded_message = message.body.decode()
-        self.log.debug(f"[{self.labeled_name}] received a [System Integrity] message: {message}")
+        self.log.debug(
+            f"[{self.labeled_name}] received a [System Integrity] message: {message}")
         try:
             data = yaml.safe_load(decoded_message)
         except yaml.YAMLError as e:
-            self.log.error(f"[{self.labeled_name}] could not parse [System Integrity] message: {e}")
+            self.log.error(
+                f"[{self.labeled_name}] could not parse [System Integrity] message: {e}")
             return
         if data['type'] == 'command':
             method = data.get('method')
             kwargs = data.get('kwargs')
             await self.system_integrity_run_command(method, kwargs)
 
+    # Attempts to run the commands sent from the system integrity queue
     async def system_integrity_run_command(self, method_name: str, kwargs: dict = None):
         kwargs = kwargs or {}
-        self.log.debug(f"[{self.labeled_name}] received a [System Integrity] command, method: {method_name}, args: {kwargs}")
+        self.log.debug(
+            f"[{self.labeled_name}] received a [System Integrity] command, method: {method_name}, args: {kwargs}")
         try:
             method = getattr(self, method_name)
             method(**kwargs)
         except Exception as e:
-            self.log.error(f"[{self.labeled_name}] failed [System Integrity] command: method {method_name}, error: {e}")
+            self.log.error(
+                f"[{self.labeled_name}] failed [System Integrity] command: method {method_name}, error: {e}")
 
     async def subscribe_debug_queue(self):
         queue_name = self.build_debug_queue_name(self.settings.name)
@@ -294,18 +352,22 @@ class Resource(ABC):
         queue_name = self.build_debug_queue_name(self.settings.name)
         if queue_name in self.consumers:
             queue, consumer_tag = self.consumers[queue_name]
-            self.log.debug(f"{self.labeled_name} unsubscribing from {queue_name}...")
+            self.log.debug(
+                f"{self.labeled_name} unsubscribing from {queue_name}...")
             await queue.cancel(consumer_tag)
-            self.log.info(f"{self.labeled_name} unsubscribed from {queue_name}")
+            self.log.info(
+                f"{self.labeled_name} unsubscribed from {queue_name}")
 
     async def debug_message_handler(self, message: aio_pika.IncomingMessage):
         async with message.process():
             decoded_message = message.body.decode()
-        self.log.debug(f"[{self.labeled_name}] received a [Debug] message: {message}")
+        self.log.debug(
+            f"[{self.labeled_name}] received a [Debug] message: {message}")
         try:
             data = yaml.safe_load(decoded_message)
         except yaml.YAMLError as e:
-            self.log.error(f"[{self.labeled_name}] could not parse [Debug] message: {e}")
+            self.log.error(
+                f"[{self.labeled_name}] could not parse [Debug] message: {e}")
             return
         if data['type'] == 'command':
             method = data.get('method')
@@ -314,25 +376,33 @@ class Resource(ABC):
 
     async def debug_run_command(self, method_name: str, kwargs: dict = None):
         kwargs = kwargs or {}
-        self.log.debug(f"[{self.labeled_name}] received a [Debug] command, method: {method_name}, args: {kwargs}")
+        self.log.debug(
+            f"[{self.labeled_name}] received a [Debug] command, method: {method_name}, args: {kwargs}")
         try:
             method = getattr(self, method_name)
             method(**kwargs)
         except Exception as e:
-            self.log.error(f"[{self.labeled_name}] failed [Debug] command: method {method_name}, error: {e}")
+            self.log.error(
+                f"[{self.labeled_name}] failed [Debug] command: method {method_name}, error: {e}")
 
     def resource_log(self, message):
         self.log.info(f"{self.labeled_name} resource log: \n\n{message}\n\n")
-        log_message = self.build_message('logging', message={'message': message}, message_type='log')
-        self.push_exchange_message_to_publisher_local_queue(self.settings.resource_log_queue, log_message)
+        log_message = self.build_message(
+            'logging', message={'message': message}, message_type='log')
+        self.push_exchange_message_to_publisher_local_queue(
+            self.settings.resource_log_queue, log_message)
 
     def telemetry_subscribe_to_namespace(self, namespace):
         self.telemetry_subscribe_unsubscribe_namespace('subscribe', namespace)
 
     def telemetry_unsubscribe_from_namespace(self, namespace):
-        self.telemetry_subscribe_unsubscribe_namespace('unsubscribe', namespace)
+        self.telemetry_subscribe_unsubscribe_namespace(
+            'unsubscribe', namespace)
 
     def telemetry_subscribe_unsubscribe_namespace(self, message_type, namespace):
-        self.log.info(f"{self.labeled_name} '{message_type}' telemetry namespace: {namespace}")
-        message = self.build_message('telemetry', message={'queue': self.build_telemetry_queue_name(self.settings.name), 'namespace': namespace}, message_type=message_type)
-        self.push_exchange_message_to_publisher_local_queue(self.settings.telemetry_subscribe_queue, message)
+        self.log.info(
+            f"{self.labeled_name} '{message_type}' telemetry namespace: {namespace}")
+        message = self.build_message('telemetry', message={'queue': self.build_telemetry_queue_name(
+            self.settings.name), 'namespace': namespace}, message_type=message_type)
+        self.push_exchange_message_to_publisher_local_queue(
+            self.settings.telemetry_subscribe_queue, message)

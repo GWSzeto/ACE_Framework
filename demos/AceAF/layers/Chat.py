@@ -49,6 +49,11 @@ class Chatbot:
         result = self.reflect_agent(message, history)
         return result
 
+    # Using the user's message, it outputs the following:
+    # Category: <<category of the user's message>>
+    # Inner Thought: <<Thoughts that the persona it's adopting might have about the user's message>>
+    # Emotion: <<Emotion that the persona it's adopting might have about the user's message>>>>
+    # Reason: <<Reason why it's feeling that way>>
     def thought_agent(self, message, history):
         self.result = self.thou.run(user_message=message,
                                     history=history["documents"])
@@ -58,6 +63,8 @@ class Chatbot:
         cat = self.format_string(self.thought["Category"])
         self.memory_recall(cat, message)
 
+    # It creates a response using the info from the user message, chat history
+    # and response from the thought agent
     def gen_agent(self, message, history):
         self.result = self.gen.run(user_message=message,
                                    history=history["documents"],
@@ -70,6 +77,9 @@ class Chatbot:
         print(f"self.thought: {self.generate}")
         self.chat_response = self.result
 
+    # Using the user's message, it outputs the following:
+    # What: <<employ's empathy to try to guess what might be going through the user's mind>>
+    # Why: <<reason why it guessed that>>
     def theory_agent(self, message, history):
         self.result = self.theo.run(user_message=message,
                                     history=history["documents"])
@@ -77,6 +87,11 @@ class Chatbot:
         self.theory = self.parse_lines()
         print(f"self.thought: {self.theory}")
 
+    # This is in place to second guess the initial response from the generate agent
+    # Using the What, Why, Emotion, Reason and user's message
+    # it outputs the following:
+    # Choice: <<Respond or Nothing>>
+    # Reason: <<Reason why it chose that>>
     def reflect_agent(self, message, history):
 
         self.result = self.ref.run(user_message=message,
@@ -115,6 +130,8 @@ class Chatbot:
         }
         self.storage.save_memory(params)
 
+    # this is how to interact with the chat programmatically
+    # Might be the main method or a testing function
     def chatman(self, message):
         size = self.storage.count_collection("chat_history")
         qsize = max(size - 10, 1)

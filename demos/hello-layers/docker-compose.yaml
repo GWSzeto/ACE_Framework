@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 x-python-image: &default_python_image python:3.11-slim
 x-networks: &default_networks
@@ -33,7 +33,6 @@ x-healthcheck: &healthcheck
 x-command: &default_command ["python3", "main.py"]
 
 services:
-
   rabbitmq:
     image: rabbitmq:management
     restart: always
@@ -50,6 +49,27 @@ services:
       timeout: 10s
       retries: 3
 
+  interlayer_communication_buses:
+    build:
+      <<: *default_build
+    environment:
+      <<:
+        - *rabbitmq_environment
+        - *logging_environment
+      ACE_RESOURCE_NAME: busses
+    command: *default_command
+    depends_on:
+      - rabbitmq
+      # - logging
+      # - aspirational_layer
+      # - global_strategy_layer
+      # - agent_model_layer
+      # - executive_function_layer
+      # - cognitive_control_layer
+      # - task_prosecution_layer
+    networks: *default_networks
+    healthcheck: *healthcheck
+
   logging:
     build:
       <<: *default_build
@@ -58,6 +78,8 @@ services:
         - *rabbitmq_environment
         - *logging_environment
       ACE_RESOURCE_NAME: logging
+    depends_on:
+      - interlayer_communication_buses
     command: *default_command
     networks: *default_networks
     healthcheck: *healthcheck
@@ -70,6 +92,8 @@ services:
         - *rabbitmq_environment
         - *logging_environment
       ACE_RESOURCE_NAME: telemetry_manager
+    depends_on:
+      - interlayer_communication_buses
     command: *default_command
     networks: *default_networks
     healthcheck: *healthcheck
@@ -119,142 +143,123 @@ services:
   #     - *default_networks
   #   healthcheck: *healthcheck
 
-  aspirational_layer:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *secrets_environment
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: layer_1
-    command: *default_command
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # aspirational_layer:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *secrets_environment
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: layer_1
+  #   depends_on:
+  #     - interlayer_communication_buses
+  #   command: *default_command
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  global_strategy_layer:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *secrets_environment
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: layer_2
-    command: *default_command
-    depends_on:
-      - aspirational_layer
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # global_strategy_layer:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *secrets_environment
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: layer_2
+  #   command: *default_command
+  #   depends_on:
+  #     - aspirational_layer
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  agent_model_layer:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *secrets_environment
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: layer_3
-    command: *default_command
-    depends_on:
-      - global_strategy_layer
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # agent_model_layer:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *secrets_environment
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: layer_3
+  #   command: *default_command
+  #   depends_on:
+  #     - global_strategy_layer
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  executive_function_layer:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *secrets_environment
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: layer_4
-    command: *default_command
-    depends_on:
-      - agent_model_layer
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # executive_function_layer:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *secrets_environment
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: layer_4
+  #   command: *default_command
+  #   depends_on:
+  #     - agent_model_layer
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  cognitive_control_layer:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *secrets_environment
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: layer_5
-    command: *default_command
-    depends_on:
-      - executive_function_layer
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # cognitive_control_layer:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *secrets_environment
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: layer_5
+  #   command: *default_command
+  #   depends_on:
+  #     - executive_function_layer
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  task_prosecution_layer:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *secrets_environment
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: layer_6
-    command: *default_command
-    depends_on:
-      - cognitive_control_layer
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # task_prosecution_layer:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *secrets_environment
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: layer_6
+  #   command: *default_command
+  #   depends_on:
+  #     - cognitive_control_layer
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  interlayer_communication_buses:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: busses
-    command: *default_command
-    depends_on:
-      - rabbitmq
-      - logging
-      - aspirational_layer
-      - global_strategy_layer
-      - agent_model_layer
-      - executive_function_layer
-      - cognitive_control_layer
-      - task_prosecution_layer
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # system_integrity:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: system_integrity
+  #   command: *default_command
+  #   depends_on:
+  #     - interlayer_communication_buses
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
-  system_integrity:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: system_integrity
-    command: *default_command
-    depends_on:
-      - interlayer_communication_buses
-    networks: *default_networks
-    healthcheck: *healthcheck
-
-  debug:
-    build:
-      <<: *default_build
-    environment:
-      <<:
-        - *rabbitmq_environment
-        - *logging_environment
-      ACE_RESOURCE_NAME: debug
-    command: *default_command
-    depends_on:
-      - system_integrity
-    networks: *default_networks
-    healthcheck: *healthcheck
+  # debug:
+  #   build:
+  #     <<: *default_build
+  #   environment:
+  #     <<:
+  #       - *rabbitmq_environment
+  #       - *logging_environment
+  #     ACE_RESOURCE_NAME: debug
+  #   command: *default_command
+  #   depends_on:
+  #     - system_integrity
+  #   networks: *default_networks
+  #   healthcheck: *healthcheck
 
 networks:
   ace-framework-network:

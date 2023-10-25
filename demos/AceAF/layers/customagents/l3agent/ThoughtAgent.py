@@ -11,6 +11,22 @@ class ThoughtAgent(Agent):
         self.data['persona_user'] = self.agent_data['persona']['Persona']['Username']
         self.data['Narrative'] = "none"
 
+    # example of how it works. Takes the following text
+    #
+    # Heading1:
+    # content1
+    # content2
+    # Heading2:
+    # content3
+    #
+    # and turns it into a dictionary like this:
+    # {
+    #     "Heading1": "content1\ncontent2",
+    #     "Heading2": "content3"
+    # }
+    #
+    # Look at the last message of the chatGPT chat to get a better understanding here
+    # https://chat.openai.com/c/63022fae-f4c2-4926-b752-c716aa691abf
     def parse_result(self):
         # Initialize an empty dictionary to store the parsed data
         parsed_data = {}

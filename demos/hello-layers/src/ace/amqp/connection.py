@@ -35,4 +35,5 @@ async def get_connection(settings: Settings,
             retries += 1
             await asyncio.sleep(retries * delay_factor)  # Exponential backoff
 
-    raise Exception(f"Failed to establish a connection and channel after maximum retries: {max_retries}.")
+    raise Exception(
+        f"Failed to establish a connection and channel after maximum retries: {max_retries}.")

@@ -5,6 +5,10 @@ from ace.logger import Logger
 
 logger = Logger(__name__)
 
+# Creates an exchange and sets up the queue with the queue name passed in
+# If system integrity queue is setup, it binds the system integrity queue to the exchange
+# Same thing with the resource log queue
+
 
 async def setup_exchange(settings: Settings, channel: aio_pika.Channel, queue_name: str, durable=True):
     exchange_name = f"exchange.{queue_name}"
@@ -18,12 +22,14 @@ async def setup_exchange(settings: Settings, channel: aio_pika.Channel, queue_na
     if settings.system_integrity_queue and queue_name != settings.system_integrity_data_queue:
         system_integrity_queue = await channel.declare_queue(settings.system_integrity_queue, durable=True)
         await system_integrity_queue.bind(exchange_name)
-        logger.debug(f"Bound {settings.system_integrity_queue} to exchange {exchange_name}")
+        logger.debug(
+            f"Bound {settings.system_integrity_queue} to exchange {exchange_name}")
 
     if settings.logging_queue and queue_name != settings.resource_log_queue:
         logging_queue = await channel.declare_queue(settings.logging_queue, durable=True)
         await logging_queue.bind(exchange_name)
-        logger.debug(f"Bound {settings.logging_queue} to exchange {exchange_name}")
+        logger.debug(
+            f"Bound {settings.logging_queue} to exchange {exchange_name}")
 
 
 async def teardown_exchange(settings: Settings, channel: aio_pika.Channel, queue_name: str, durable=True):
