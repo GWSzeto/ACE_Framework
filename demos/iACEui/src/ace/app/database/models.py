@@ -88,7 +88,7 @@ class RabbitMQLog(Base):
     
     layer_config = relationship("LayerConfig", back_populates="rabbitmq_logs")
 
-
+# sees if the layer is ready to process messages or not
 class LayerState(Base):
     __tablename__ = 'layer_state'
 

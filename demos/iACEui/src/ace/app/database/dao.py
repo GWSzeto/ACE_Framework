@@ -250,6 +250,7 @@ def get_layer_state_by_name(db: Session, layer_name: str):
     return layer_state
 
 
+# Updates the state of the layer to either process messages or not
 def update_layer_state(
         db: Session,
         process_messages: bool,
@@ -261,6 +262,7 @@ def update_layer_state(
         raise ValueError("Layer_name must be provided.")
     
     if not db_layer_state:
+        # click into LayerState for more info
         db_layer_state = LayerState(layer_name=layer_name)
         db.add(db_layer_state)
         db.commit()

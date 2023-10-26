@@ -27,7 +27,15 @@ def reason(
     start_time = time.time()
     start_time_fmt = datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')
     logger.info(f"Starting function reason() at {start_time_fmt}")
-
+    
+    # Uses the following reasoning prompt
+    # 
+    # reasoning_prompt_format = Template("""
+    # # You Received a MESSAGE From the {{source_bus}}
+                                    
+    # ## MESSAGE
+    # {{input}}
+    # """)
     reasoning_input = get_reasoning_input(
         input=input,
         source_bus=source_bus,
@@ -62,7 +70,6 @@ def reason(
     logger.info(f"Function reason() ended at {end_time_fmt} and took {elapsed_time:.2f} seconds")
 
     return results
-
 async def determine_action(
     ancestral_prompt: str,
     source_bus: str,
@@ -76,6 +83,25 @@ async def determine_action(
     start_time_fmt = datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')
     logger.info(f"Starting function determine_action() at {start_time_fmt}")
 
+    # Decides what should be put on the busses
+    #
+    # action prompt template used
+    #
+    # action_prompt_template = Template(
+    # """
+    # # Given Your Role as the {{ role_name }} in the ACE framework
+    # Consider the INPUT, YOUR REASONING about it, and BUS RULES to decide what, if any, message you should place on the {{destination_bus}}
+    #
+    # ## INPUT
+    # Input source bus = {{ source_bus }}
+    #
+    # ## YOUR REASONING
+    # {{ reasoning_completion }}
+    #
+    # ## BUS RULES
+    # {{ bus_rules }}
+    # """
+    # )
     data_bus_prompt = get_action_prompt(
         role_name=role_name,
         source_bus=source_bus,
@@ -94,6 +120,7 @@ async def determine_action(
     )
     logger.info(f"{control_bus_prompt=}")
 
+    # forms the system and user messages
     system_message = "\n\n".join(
         [
             prompts.identity,
@@ -112,7 +139,8 @@ async def determine_action(
         + [{"role": "user", "content": control_bus_prompt}]
     )
     logger.info(f"request data bus completion from chatgpt {datetime.fromtimestamp(time.time(), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    
+
+    # Generates the messages from the LLM
     data_bus_action_completion = await get_completion(
         messages=data_bus_action,
         params=llm_model_parameters,
