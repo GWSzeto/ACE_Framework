@@ -15,6 +15,9 @@ logger = Logger(os.path.basename(__file__))
 DEFAULT_DOCKER_COMPOSE_FILE = 'docker-compose.yaml'
 DEFAULT_MONITOR_SECONDS = 60
 
+# Responsible for starting and stopping the docker containers
+# and monitoring their health and restarting when necessary
+
 
 class ResourceManager():
 

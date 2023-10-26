@@ -33,6 +33,7 @@ class TelemetryManager(Resource):
 
     async def post_connect(self):
         await super().post_connect()
+        # click through for more info
         await self.make_exchanges()
         await self.subscribe_telemetry_subscribe()
 
@@ -45,16 +46,20 @@ class TelemetryManager(Resource):
         self.bus_loop.create_task(self.collect_initial_data_points())
 
     def schedule_collecting(self):
-        self.log.info(f"{self.labeled_name} scheduling recurring data points collection")
+        self.log.info(
+            f"{self.labeled_name} scheduling recurring data points collection")
         for namespace, telemetry in self.namespace_map.items():
             telemetry.start_collecting(namespace)
-        self.log.info(f"{self.labeled_name} finished scheduling recurring data points collection")
+        self.log.info(
+            f"{self.labeled_name} finished scheduling recurring data points collection")
 
     def stop_collecting(self):
-        self.log.info(f"{self.labeled_name} stopping recurring data points collection")
+        self.log.info(
+            f"{self.labeled_name} stopping recurring data points collection")
         for namespace, telemetry in self.namespace_map.items():
             telemetry.stop_collecting(namespace)
-        self.log.info(f"{self.labeled_name} finished stopping recurring data points collection")
+        self.log.info(
+            f"{self.labeled_name} finished stopping recurring data points collection")
 
     @property
     def settings(self):
@@ -68,6 +73,8 @@ class TelemetryManager(Resource):
         self.log.debug(f"Checking {self.labeled_name} status")
         return self.return_status(True)
 
+    # creates a dict of all of the namespaces and their respective telemetry objects
+    # take a look at telemetry_manager.py and telemetry_user.py to see
     def load_telemetry(self):
         self.telemetry = {}
         self.namespace_map = {}
@@ -77,18 +84,23 @@ class TelemetryManager(Resource):
             if file.startswith('telemetry_') and file.endswith('.py'):
                 name = os.path.splitext(file)[0]
                 class_name = util.snake_to_class(name)
-                self.log.debug(f"{self.labeled_name} found telemetry file {file}: name={name}, class_name={class_name}")
+                self.log.debug(
+                    f"{self.labeled_name} found telemetry file {file}: name={name}, class_name={class_name}")
                 try:
-                    self.log.debug(f"{self.labeled_name} loading Telemetry class: {class_name}")
-                    module = importlib.import_module(f'ace.framework.telemetry.{name}')
+                    self.log.debug(
+                        f"{self.labeled_name} loading Telemetry class: {class_name}")
+                    module = importlib.import_module(
+                        f'ace.framework.telemetry.{name}')
                     class_ = getattr(module, class_name)
                     instance = class_(publisher=self.publish)
                     self.telemetry[name] = instance
-                    self.log.info(f"{self.labeled_name} loaded Telemetry class: {class_name}")
+                    self.log.info(
+                        f"{self.labeled_name} loaded Telemetry class: {class_name}")
                     for namespace in instance.namespaces:
                         self.namespace_map[namespace] = instance
                 except Exception as e:
-                    self.log.error(f"{self.labeled_name} failed to load Telemetry class {class_name}, {e}", exc_info=True)
+                    self.log.error(
+                        f"{self.labeled_name} failed to load Telemetry class {class_name}, {e}", exc_info=True)
                     raise
 
     def build_telemetry_exchange_name(self, root):
@@ -102,13 +114,17 @@ class TelemetryManager(Resource):
 
     def build_telemetry_message(self, namespace, data):
         root = self.namespace_root(namespace)
-        message = self.build_message(self.build_telemetry_exchange_name(root), message={'namespace': namespace, 'data': data}, message_type='telemetry')
+        message = self.build_message(self.build_telemetry_exchange_name(root), message={
+                                     'namespace': namespace, 'data': data}, message_type='telemetry')
         return message
 
+    # creates an exchange based on the keys of the namespace_map
+    # namespace_map is composed of the namespaces from telemetry_manager and telemetry_user respectively
     async def make_exchanges(self):
         for root in self.unique_roots():
             await self.make_exchange(root)
 
+    # creates a telemetry exchange based on the root of the namespace
     async def make_exchange(self, root):
         exchange_name = self.build_telemetry_exchange_name(root)
         exchange = await self.publisher_channel.declare_exchange(exchange_name, aio_pika.ExchangeType.TOPIC)
@@ -116,11 +132,14 @@ class TelemetryManager(Resource):
         return exchange
 
     async def collect_initial_data_points(self):
-        self.log.info(f"{self.labeled_name} starting initial data points collection")
+        self.log.info(
+            f"{self.labeled_name} starting initial data points collection")
         asyncio.set_event_loop(self.bus_loop)
-        tasks = [self.bus_loop.create_task(telemetry.collect_data(namespace)) for namespace, telemetry in self.namespace_map.items()]
+        tasks = [self.bus_loop.create_task(telemetry.collect_data(
+            namespace)) for namespace, telemetry in self.namespace_map.items()]
         await asyncio.gather(*tasks)
-        self.log.info(f"{self.labeled_name} finished initial data points collection")
+        self.log.info(
+            f"{self.labeled_name} finished initial data points collection")
 
     async def publish_exchange_message(self, exchange, body, routing_key, delivery_mode=2):
         message = aio_pika.Message(
@@ -138,47 +157,67 @@ class TelemetryManager(Resource):
 
     async def publish(self, namespace, data):
         try:
-            self.log.debug(f"{self.labeled_name} publishing telemetry data to: {namespace}")
+            self.log.debug(
+                f"{self.labeled_name} publishing telemetry data to: {namespace}")
             root = self.namespace_root(namespace)
             exchange = await self.make_exchange(root)
             message = self.build_telemetry_message(namespace, data)
             await self.publish_exchange_message(exchange, message, namespace)
-            self.log.debug(f"{self.labeled_name} published telemetry data to: {namespace}")
+            self.log.debug(
+                f"{self.labeled_name} published telemetry data to: {namespace}")
         except Exception as e:
-            self.log.error(f"{self.labeled_name} failed to publish telemetry data to {namespace}: {e}", exc_info=True)
+            self.log.error(
+                f"{self.labeled_name} failed to publish telemetry data to {namespace}: {e}", exc_info=True)
             raise
 
+    # declares the queue and binds it to the exchange of the root module of the namespace passed in
     async def subscribe(self, queue_name, namespace):
         try:
-            self.log.debug(f"{self.labeled_name} subscribing queue {queue_name} to telemetry namespace: {namespace}")
+            self.log.debug(
+                f"{self.labeled_name} subscribing queue {queue_name} to telemetry namespace: {namespace}")
             queue = await self.consumer_channel.declare_queue(queue_name, durable=True)
+            # this gets the module name (ie: user or environment)
             root = self.namespace_root(namespace)
             exchange_name = self.build_telemetry_exchange_name(root)
+            # this waits for the make_exchange function to finish
+            # which is called in post_connect
             while not self.exchange_created[root]:
-                self.log.debug(f"{self.labeled_name} waiting for exchange {exchange_name}...")
+                self.log.debug(
+                    f"{self.labeled_name} waiting for exchange {exchange_name}...")
                 await asyncio.sleep(1)
             await queue.bind(exchange_name, routing_key=namespace)
-            namespaces = [ns for ns in self.namespace_map if fnmatch.fnmatch(ns, namespace)]
+            namespaces = [
+                ns for ns in self.namespace_map if fnmatch.fnmatch(ns, namespace)]
             for ns in namespaces:
                 telemetry = self.namespace_map[ns]
+                # gets the last data point for that name space?
+                # not sure how the data points are constructed in the first place
                 data = await telemetry.get_data(ns)
+                # builds a yaml of the message
                 message = self.build_telemetry_message(ns, data)
-                self.log.debug(f"{self.labeled_name} publishing initial telemetry for namespace {ns} to queue: {queue_name}")
+                self.log.debug(
+                    f"{self.labeled_name} publishing initial telemetry for namespace {ns} to queue: {queue_name}")
+                # sends out the namespace
                 await self.publish_queue_message(queue_name, message)
-            self.log.info(f"{self.labeled_name} subscribed queue {queue_name} to telemetry namespace: {namespace}")
+            self.log.info(
+                f"{self.labeled_name} subscribed queue {queue_name} to telemetry namespace: {namespace}")
         except Exception as e:
-            self.log.error(f"{self.labeled_name} failed to subscribe queue {queue_name} to telemetry namespace {namespace}: {e}", exc_info=True)
+            self.log.error(
+                f"{self.labeled_name} failed to subscribe queue {queue_name} to telemetry namespace {namespace}: {e}", exc_info=True)
             raise
 
     async def unsubscribe(self, queue_name, namespace):
         try:
-            self.log.debug(f"{self.labeled_name} unsubscribing queue {queue_name} from telemetry namespace: {namespace}")
+            self.log.debug(
+                f"{self.labeled_name} unsubscribing queue {queue_name} from telemetry namespace: {namespace}")
             queue = await self.consumer_channel.declare_queue(queue_name, durable=True)
             root = self.namespace_root(namespace)
             await queue.unbind(self.build_telemetry_exchange_name(root))
-            self.log.info(f"{self.labeled_name} unsubscribed queue {queue_name} from telemetry namespace: {namespace}")
+            self.log.info(
+                f"{self.labeled_name} unsubscribed queue {queue_name} from telemetry namespace: {namespace}")
         except Exception as e:
-            self.log.error(f"{self.labeled_name} failed to unsubscribe queue {queue_name} from telemetry namespace {namespace}: {e}", exc_info=True)
+            self.log.error(
+                f"{self.labeled_name} failed to unsubscribe queue {queue_name} from telemetry namespace {namespace}: {e}", exc_info=True)
             raise
 
     async def handle_subscribe_unsubscribe(self, data):
@@ -194,20 +233,25 @@ class TelemetryManager(Resource):
         try:
             data = yaml.safe_load(body)
         except yaml.YAMLError as e:
-            self.log.error(f"[{self.labeled_name}] could not parse message: {e}")
+            self.log.error(
+                f"[{self.labeled_name}] could not parse message: {e}")
             return
         await self.handle_subscribe_unsubscribe(data)
 
     async def subscribe_telemetry_subscribe(self):
-        self.log.debug(f"{self.labeled_name} subscribing to telemetry subscribe queue...")
+        self.log.debug(
+            f"{self.labeled_name} subscribing to telemetry subscribe queue...")
         queue_name = self.settings.telemetry_subscribe_queue
         self.consumers[queue_name] = await self.try_queue_subscribe(queue_name, self.message_handler)
-        self.log.info(f"{self.labeled_name} subscribed to telemetry subscribe queue")
+        self.log.info(
+            f"{self.labeled_name} subscribed to telemetry subscribe queue")
 
     async def unsubscribe_telemetry_subscribe(self):
         queue_name = self.settings.telemetry_subscribe_queue
         if queue_name in self.consumers:
             queue, consumer_tag = self.consumers[queue_name]
-            self.log.debug(f"{self.labeled_name} unsubscribing from telemetry subscribe queue...")
+            self.log.debug(
+                f"{self.labeled_name} unsubscribing from telemetry subscribe queue...")
             await queue.cancel(consumer_tag)
-            self.log.info(f"{self.labeled_name} unsubscribed from telemetry subscribe queue")
+            self.log.info(
+                f"{self.labeled_name} unsubscribed from telemetry subscribe queue")

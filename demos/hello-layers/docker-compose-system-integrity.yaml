@@ -1,0 +1,64 @@
+version: "3"
+
+x-python-image: &default_python_image python:3.11-slim
+x-networks: &default_networks
+  - hello-layers_ace-framework-network
+
+x-build: &default_build
+  context: .
+  dockerfile: Dockerfile
+  args:
+    BASE_IMAGE: *default_python_image
+
+x-secrets-environment: &secrets_environment
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+x-logging-environment: &logging_environment
+  ACE_LOG_LEVEL: ${ACE_LOG_LEVEL:-}
+  ACE_THIRD_PARTY_LOG_LEVEL: ${ACE_THIRD_PARTY_LOG_LEVEL:-}
+
+x-rabbitmq-username: &rabbitmq-username rabbit
+x-rabbitmq-password: &rabbitmq-password carrot
+x-rabbitmq-environment: &rabbitmq_environment
+  AMQP_HOST_NAME: rabbitmq
+  AMQP_USERNAME: *rabbitmq-username
+  AMQP_PASSWORD: *rabbitmq-password
+
+x-healthcheck: &healthcheck
+  test: ["CMD", "/usr/local/bin/check_resource_health.py"]
+  interval: 5s
+  timeout: 3s
+  retries: 3
+
+x-command: &default_command ["python3", "main.py"]
+
+services:
+  system_integrity:
+    build:
+      <<: *default_build
+    environment:
+      <<:
+        - *rabbitmq_environment
+        - *logging_environment
+      ACE_RESOURCE_NAME: system_integrity
+    command: *default_command
+    networks: *default_networks
+    healthcheck: *healthcheck
+
+  debug:
+    build:
+      <<: *default_build
+    environment:
+      <<:
+        - *rabbitmq_environment
+        - *logging_environment
+      ACE_RESOURCE_NAME: debug
+    command: *default_command
+    depends_on:
+      - system_integrity
+    networks: *default_networks
+    healthcheck: *healthcheck
+
+networks:
+  hello-layers_ace-framework-network:
+    external: true

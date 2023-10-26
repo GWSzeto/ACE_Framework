@@ -12,12 +12,15 @@ from ace.debug_endpoint import DebugEndpoint
 class DebugSettings(Settings):
     pass
 
+# Seems to be strictly responsible for logging messages to the debug ui
+
 
 class Debug(Resource):
 
     def __init__(self):
         super().__init__()
-        self.debug_endpoint = DebugEndpoint(constants.DEFAULT_DEBUG_ENDPOINT_PORT, self.debug_endpoint_routes)
+        self.debug_endpoint = DebugEndpoint(
+            constants.DEFAULT_DEBUG_ENDPOINT_PORT, self.debug_endpoint_routes)
 
     @property
     def settings(self):
@@ -50,13 +53,18 @@ class Debug(Resource):
         super().shutdown_service()
         self.debug_endpoint.stop_endpoint()
 
+    # subs to the debug data queue and the callback
+    # is responsible for logging the messages of type message to the debug ui
     async def post_connect(self):
         await self.subscribe_debug_data()
 
     def get_layers_messages(self):
-        self.log.debug(f"{self.labeled_name} requesting updated messages for layers")
-        asyncio.run_coroutine_threadsafe(self.update_layers_messages_state(), self.bus_loop)
-        self.log.debug(f"{self.labeled_name} requested updated messages for layers")
+        self.log.debug(
+            f"{self.labeled_name} requesting updated messages for layers")
+        asyncio.run_coroutine_threadsafe(
+            self.update_layers_messages_state(), self.bus_loop)
+        self.log.debug(
+            f"{self.labeled_name} requested updated messages for layers")
         return {
             'success': True,
             'message': f"Requested updated messages for layers: {', '.join(self.settings.layers)}"
@@ -65,9 +73,12 @@ class Debug(Resource):
     def run_layer(self, data):
         layer = data['layer']
         messages = data['messages']
-        self.log.debug(f"{self.labeled_name} requesting run layer for layer: {layer}")
-        asyncio.run_coroutine_threadsafe(self.run_layer_with_messages(layer, messages), self.bus_loop)
-        self.log.debug(f"{self.labeled_name} requested run layer for layer: {layer}")
+        self.log.debug(
+            f"{self.labeled_name} requesting run layer for layer: {layer}")
+        asyncio.run_coroutine_threadsafe(
+            self.run_layer_with_messages(layer, messages), self.bus_loop)
+        self.log.debug(
+            f"{self.labeled_name} requested run layer for layer: {layer}")
         return {
             'success': True,
             'message': f"Requested run layer for layer: {layer}",
@@ -86,9 +97,11 @@ class Debug(Resource):
 
     async def execute_resource_command(self, resource, command, kwargs=None):
         kwargs = kwargs or {}
-        self.log.debug(f"[{self.labeled_name}] sending command '{command}' to resource: {resource}")
+        self.log.debug(
+            f"[{self.labeled_name}] sending command '{command}' to resource: {resource}")
         queue_name = self.build_debug_queue_name(resource)
-        message = self.build_message(resource, message={'method': command, 'kwargs': kwargs}, message_type='command')
+        message = self.build_message(
+            resource, message={'method': command, 'kwargs': kwargs}, message_type='command')
         await self.publish_message(queue_name, message)
 
     async def update_layers_messages_state(self):
@@ -97,21 +110,25 @@ class Debug(Resource):
             await self.update_layer_messages_state(layer)
 
     async def update_layer_messages_state(self, layer):
-        self.log.info(f"[{self.labeled_name}] sending debug_update_messages_state command to layer: {layer}")
+        self.log.info(
+            f"[{self.labeled_name}] sending debug_update_messages_state command to layer: {layer}")
         await self.execute_resource_command(layer, 'debug_update_messages_state')
 
     async def run_layer_with_messages(self, layer, messages):
-        self.log.info(f"[{self.labeled_name}] sending debug_run_layer_with_messages command to layer: {layer}")
+        self.log.info(
+            f"[{self.labeled_name}] sending debug_run_layer_with_messages command to layer: {layer}")
         await self.execute_resource_command(layer, 'debug_run_layer_with_messages', messages)
 
     async def message_data_handler(self, message: aio_pika.IncomingMessage):
         async with message.process():
             body = message.body.decode()
-        self.log.debug(f"[{self.labeled_name}] received a data message: {body}")
+        self.log.debug(
+            f"[{self.labeled_name}] received a data message: {body}")
         try:
             data = yaml.safe_load(body)
         except yaml.YAMLError as e:
-            self.log.error(f"[{self.labeled_name}] could not parse data message: {e}")
+            self.log.error(
+                f"[{self.labeled_name}] could not parse data message: {e}")
             return
         await self.process_debug_data(data)
 
@@ -123,17 +140,20 @@ class Debug(Resource):
     async def post_layer_messages_update(self, data):
         layer = data['layer']
         messages = data['messages']
-        self.log.debug(f"{self.labeled_name} POST layer update for layer: {layer}")
+        self.log.debug(
+            f"{self.labeled_name} POST layer update for layer: {layer}")
         data = {'layer': layer, 'messages': messages}
         await self.post_to_debug_ui('layer-messages', data)
 
     async def post_to_debug_ui(self, path, data):
         async with httpx.AsyncClient() as client:
             response = await client.post(f'http://localhost:{constants.DEFAULT_DEBUG_UI_ENDPOINT_PORT}/{path}', json=data)
-            self.log.debug(f"{self.labeled_name} POST response from debug UI: {response.text}")
+            self.log.debug(
+                f"{self.labeled_name} POST response from debug UI: {response.text}")
 
     async def subscribe_debug_data(self):
-        self.log.debug(f"{self.labeled_name} subscribing to debug data queue...")
+        self.log.debug(
+            f"{self.labeled_name} subscribing to debug data queue...")
         queue_name = self.settings.debug_data_queue
         self.consumers[queue_name] = await self.try_queue_subscribe(queue_name, self.message_data_handler)
         self.log.info(f"{self.labeled_name} subscribed to debug data queue")
@@ -142,6 +162,8 @@ class Debug(Resource):
         queue_name = self.settings.debug_data_queue
         if queue_name in self.consumers:
             queue, consumer_tag = self.consumers[queue_name]
-            self.log.debug(f"{self.labeled_name} unsubscribing from debug data queue...")
+            self.log.debug(
+                f"{self.labeled_name} unsubscribing from debug data queue...")
             await queue.cancel(consumer_tag)
-            self.log.info(f"{self.labeled_name} unsubscribed from debug data queue")
+            self.log.info(
+                f"{self.labeled_name} unsubscribed from debug data queue")
