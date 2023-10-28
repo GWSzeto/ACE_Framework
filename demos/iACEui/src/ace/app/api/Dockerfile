@@ -10,4 +10,4 @@ COPY ./app/ /ace/app/
 # This needs to be removed and tested.  We don't want to include the .env file in the images.
 # COPY ./
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
